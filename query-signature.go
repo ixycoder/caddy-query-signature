@@ -175,6 +175,10 @@ func (m *QuerySignature) verifySignature(r *http.Request) error {
 	// 计算HMAC-SHA256签名
 	expectedSign := m.calculateSignature(stringToSign)
 
+	// fmt.Printf("stringToSign: %s\n", stringToSign)
+	// fmt.Printf("expectedSign: %s\n", expectedSign)
+	// fmt.Printf("sign: %s\n", sign)
+
 	// 比较签名
 	if !hmac.Equal([]byte(sign), []byte(expectedSign)) {
 		return fmt.Errorf("invalid signature")
@@ -207,9 +211,9 @@ func (m *QuerySignature) buildStringToSign(query url.Values, r *http.Request) st
 
 	// 添加请求路径和方法（可选增强）
 	path := r.URL.Path
-	if r.URL.RawQuery != "" {
-		path = fmt.Sprintf("%s?%s", r.URL.Path, r.URL.RawQuery)
-	}
+	// if r.URL.RawQuery != "" {
+	// 	path = fmt.Sprintf("%s?%s", r.URL.Path, r.URL.RawQuery)
+	// }
 
 	return fmt.Sprintf("%s&%s&%s", r.Method, path, strings.Join(params, "&"))
 }
