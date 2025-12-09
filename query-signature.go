@@ -194,8 +194,7 @@ func (m *QuerySignature) verifySignature(r *http.Request) error {
 
 	// 比较签名
 	if !hmac.Equal([]byte(sign), []byte(expectedSign)) {
-		return fmt.Errorf("invalid signature, expected: %s, got: %s, stringToSign: %s",
-			expectedSign, sign, stringToSign)
+		return fmt.Errorf("invalid signature")
 	}
 
 	return nil
