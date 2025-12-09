@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/ixycoder/caddy-query-signature/util"
 	"go.uber.org/zap"
 )
 
@@ -81,7 +82,7 @@ func TestQuerySignature(t *testing.T) {
 			qs.logger = zap.NewNop()
 
 			// 生成签名
-			sg := NewSignatureGenerator("test-secret-key")
+			sg := util.NewSignatureGenerator("test-secret-key")
 			sg.SignParam = qs.SignParam
 			sg.TimestampParam = qs.TimestampParam
 
@@ -114,7 +115,7 @@ func TestQuerySignature(t *testing.T) {
 }
 
 func TestSignatureGenerator(t *testing.T) {
-	sg := NewSignatureGenerator("test-secret")
+	sg := util.NewSignatureGenerator("test-secret")
 
 	params := url.Values{
 		"param1": {"value1"},
@@ -134,7 +135,7 @@ func TestSignatureGenerator(t *testing.T) {
 		t.Fatalf("Parse URL failed: %v", err)
 	}
 
-	if !VerifySignature("test-secret", "sign", parsedURL.Query(), "GET", "/test") {
+	if !util.VerifySignature("test-secret", "sign", "ts", "ak", parsedURL.Query(), "GET", "/test") {
 		t.Error("Signature verification failed")
 	}
 }

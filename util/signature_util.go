@@ -1,4 +1,4 @@
-package cqs
+package util
 
 import (
 	"crypto/hmac"
@@ -16,6 +16,7 @@ type SignatureGenerator struct {
 	SecretKey      string
 	SignParam      string
 	TimestampParam string
+	AccessKeyParam string
 	ExcludeParams  []string
 }
 
@@ -25,6 +26,7 @@ func NewSignatureGenerator(secretKey string) *SignatureGenerator {
 		SecretKey:      secretKey,
 		SignParam:      "sign",
 		TimestampParam: "timestamp",
+		AccessKeyParam: "ak",
 	}
 }
 
@@ -35,20 +37,29 @@ func (sg *SignatureGenerator) GenerateSignature(baseURL, method string, params u
 		params.Set(sg.TimestampParam, time.Now().Format(time.RFC3339))
 	}
 
-	// 构建待签名字符串
-	stringToSign := sg.buildStringToSign(params, method, baseURL)
-
-	// 计算签名
-	signature := sg.calculateSignature(stringToSign)
-
-	// 添加签名参数
-	params.Set(sg.SignParam, signature)
+	// 添加访问密钥
+	if sg.AccessKeyParam == "" {
+		return "", fmt.Errorf("access_key_param is required")
+	}
+	accessKey := params.Get(sg.AccessKeyParam)
+	if accessKey == "" {
+		return "", fmt.Errorf("access_key is empty!")
+	}
 
 	// 构建完整URL
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return "", err
 	}
+
+	// 构建待签名字符串
+	stringToSign := sg.buildStringToSign(params, method, parsedURL.Path, accessKey)
+
+	// 计算签名
+	signature := sg.calculateSignature(stringToSign)
+
+	// 添加签名参数
+	params.Set(sg.SignParam, signature)
 
 	query := params.Encode()
 	if parsedURL.RawQuery != "" {
@@ -61,7 +72,7 @@ func (sg *SignatureGenerator) GenerateSignature(baseURL, method string, params u
 }
 
 // buildStringToSign 构建待签名字符串
-func (sg *SignatureGenerator) buildStringToSign(params url.Values, method, path string) string {
+func (sg *SignatureGenerator) buildStringToSign(params url.Values, method, path, accessKey string) string {
 	// 按参数名排序
 	var keys []string
 	for k := range params {
@@ -82,7 +93,10 @@ func (sg *SignatureGenerator) buildStringToSign(params url.Values, method, path 
 		}
 	}
 
-	return fmt.Sprintf("%s&%s&%s", method, path, strings.Join(paramStrs, "&"))
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n",
+		method, path, strings.Join(paramStrs, "&"), accessKey)
+
+	// return fmt.Sprintf("%s&%s&%s", method, path, strings.Join(paramStrs, "&"))
 }
 
 // calculateSignature 计算签名
@@ -103,9 +117,14 @@ func (sg *SignatureGenerator) isExcludedParam(param string) bool {
 }
 
 // VerifySignature 验证签名（独立验证函数）
-func VerifySignature(secretKey, signParam string, params url.Values, method, path string) bool {
+func VerifySignature(secretKey, signParam, timestampParam, accessKeyParam string, params url.Values, method, path string) bool {
 	sign := params.Get(signParam)
 	if sign == "" {
+		return false
+	}
+
+	accessKey := params.Get(accessKeyParam)
+	if accessKey == "" {
 		return false
 	}
 
@@ -115,7 +134,9 @@ func VerifySignature(secretKey, signParam string, params url.Values, method, pat
 	// 生成待签名字符串
 	sg := NewSignatureGenerator(secretKey)
 	sg.SignParam = signParam
-	stringToSign := sg.buildStringToSign(params, method, path)
+	sg.TimestampParam = timestampParam
+	sg.AccessKeyParam = accessKeyParam
+	stringToSign := sg.buildStringToSign(params, method, path, accessKey)
 
 	// 计算期望的签名
 	expectedSign := sg.calculateSignature(stringToSign)

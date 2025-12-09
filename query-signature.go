@@ -35,6 +35,9 @@ type QuerySignature struct {
 	// 签名密钥
 	SecretKey string `json:"secret_key"`
 
+	// 访问密钥参数名，默认为 "access_key"
+	AccessKeyParam string `json:"access_key_param,omitempty"`
+
 	// 签名参数名，默认为 "sign"
 	SignParam string `json:"sign_param,omitempty"`
 
@@ -68,6 +71,9 @@ func (m *QuerySignature) Provision(ctx caddy.Context) error {
 	}
 	if m.TimestampParam == "" {
 		m.TimestampParam = "timestamp"
+	}
+	if m.AccessKeyParam == "" {
+		m.AccessKeyParam = "ak"
 	}
 
 	if m.SecretKey == "" {
@@ -166,11 +172,17 @@ func (m *QuerySignature) verifySignature(r *http.Request) error {
 		return fmt.Errorf("signature parameter '%s' is required", m.SignParam)
 	}
 
+	// 获取access_key
+	accessKey := query.Get(m.AccessKeyParam)
+	if accessKey == "" {
+		return fmt.Errorf("access_key parameter '%s' is required", m.AccessKeyParam)
+	}
+
 	// 移除签名参数进行验证
 	query.Del(m.SignParam)
 
 	// 生成待签名字符串
-	stringToSign := m.buildStringToSign(query, r)
+	stringToSign := m.buildStringToSign(query, r, accessKey)
 
 	// 计算HMAC-SHA256签名
 	expectedSign := m.calculateSignature(stringToSign)
@@ -190,7 +202,7 @@ func (m *QuerySignature) verifySignature(r *http.Request) error {
 }
 
 // buildStringToSign 构建待签名字符串
-func (m *QuerySignature) buildStringToSign(query url.Values, r *http.Request) string {
+func (m *QuerySignature) buildStringToSign(query url.Values, r *http.Request, accessKey string) string {
 	// 按参数名排序
 	var keys []string
 	for k := range query {
@@ -217,7 +229,8 @@ func (m *QuerySignature) buildStringToSign(query url.Values, r *http.Request) st
 	// 	path = fmt.Sprintf("%s?%s", r.URL.Path, r.URL.RawQuery)
 	// }
 
-	return fmt.Sprintf("%s&%s&%s", r.Method, path, strings.Join(params, "&"))
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n",
+		r.Method, path, strings.Join(params, "&"), accessKey)
 }
 
 // calculateSignature 计算签名
@@ -288,6 +301,12 @@ func (m *QuerySignature) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 					return d.ArgErr()
 				}
 				m.ExcludeParams = append(m.ExcludeParams, d.Val())
+
+			case "access_key_param":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				m.AccessKeyParam = d.Val()
 
 			default:
 				return d.Errf("unrecognized subdirective: %s", d.Val())

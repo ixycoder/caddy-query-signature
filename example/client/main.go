@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	cqs "github.com/ixycoder/caddy-query-signature"
+	"github.com/ixycoder/caddy-query-signature/util"
 )
 
 func main() {
 	// 创建签名生成器
-	sg := cqs.NewSignatureGenerator("another-secret")
+	sg := util.NewSignatureGenerator("another-secret")
 	sg.SignParam = "sign"
 	sg.TimestampParam = "timestamp"
 
