@@ -37,6 +37,21 @@ func TestQuerySignature(t *testing.T) {
 			shouldPass: true,
 		},
 		{
+			name: "valid signature with custom params",
+			config: `query_signature {
+                path /
+                secret_key "test-secret-key"
+				sign_param "signature"
+                timestamp_param "timestamp"
+                expire_seconds 300
+            }`,
+			path: "/456.png",
+			params: url.Values{
+				"timestamp": {time.Now().Format(time.RFC3339)},
+			},
+			shouldPass: true,
+		},
+		{
 			name: "expired signature",
 			config: `query_signature {
                 path /api
@@ -67,8 +82,8 @@ func TestQuerySignature(t *testing.T) {
 
 			// 生成签名
 			sg := NewSignatureGenerator("test-secret-key")
-			sg.SignParam = "sig"
-			sg.TimestampParam = "ts"
+			sg.SignParam = qs.SignParam
+			sg.TimestampParam = qs.TimestampParam
 
 			signedURL, err := sg.GenerateSignature(tt.path, "GET", tt.params)
 			if err != nil {
@@ -81,6 +96,7 @@ func TestQuerySignature(t *testing.T) {
 				t.Fatalf("failed to parse URL: %v", err)
 			}
 
+			// fmt.Printf("Signed URL: %s\n", signedURL)
 			// 创建请求
 			req := httptest.NewRequest("GET", parsedURL.String(), nil)
 

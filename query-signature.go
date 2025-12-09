@@ -175,14 +175,15 @@ func (m *QuerySignature) verifySignature(r *http.Request) error {
 	// 计算HMAC-SHA256签名
 	expectedSign := m.calculateSignature(stringToSign)
 
-	m.logger.Debug("verifySignature",
-		zap.String("stringToSign", stringToSign),
-		zap.String("expectedSign", expectedSign),
-		zap.String("sign", sign))
+	// m.logger.Debug("verifySignature",
+	// 	zap.String("stringToSign", stringToSign),
+	// 	zap.String("expectedSign", expectedSign),
+	// 	zap.String("sign", sign))
 
 	// 比较签名
 	if !hmac.Equal([]byte(sign), []byte(expectedSign)) {
-		return fmt.Errorf("invalid signature")
+		return fmt.Errorf("invalid signature, expected: %s, got: %s, stringToSign: %s",
+			expectedSign, sign, stringToSign)
 	}
 
 	return nil
